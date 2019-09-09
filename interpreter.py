@@ -44,7 +44,7 @@ class Interpreter:
         '''
 
         if char == 'f' or char == 'F': 
-            self.forward(0.5)
+            self.forward() 
         if char == 'l' or char == 'L':
             self.createLeaf()   
         if char == 'b' or char == 'B':
@@ -75,24 +75,24 @@ class Interpreter:
 
         return branch
 
-    def forward( self, length ):
+    def forward( self ): 
         #if Interpreter.firstBranch == True:
 
         #points = [(0, 0, 0), (3, 5, 6), (5, 6, 7), (9, 9, 9)]
         #taper?
         
-        x = point[0] + ( length * np.sin(angle[2]) * np.sin(angle[0]) )  #just do the math
-        y = point[1] + ( length * np.sin(angle[2]) * np.cos(angle[0]) )
-        z = point[2] + ( length * np.cos(angle[2]) )
+        x = self.point[0] + ( self.length * np.sin(self.angle[2]) * np.sin(self.angle[0]) )  #just do the math
+        y = self.point[1] + ( self.length * np.sin(self.angle[2]) * np.cos(self.angle[0]) )
+        z = self.point[2] + ( self.length * np.cos(self.angle[2]) )
         
         nextPoint = ( x, y, z )
-        points = [point, nextPoint]
+        points = [self.point, nextPoint]
 
-        cmds.curve( name=name+"_curve"+str(val), p=points ) #divisions??? will complain about curve
+        cmds.curve( name=self.name+"_curve"+str(self.val), p=points ) #divisions??? will complain about curve
 
 
-        val += 1
-        point = nextPoint
+        self.val += 1
+        self.point = nextPoint
 
             
         ### create geometry ###
@@ -128,8 +128,8 @@ class Interpreter:
         
         #add val to parameters?
 
-        newBranch = createBranch( self, self.point, self.angle )  #check all parameters entered
-        branchStack.append(newBranch)
+        newBranch = self.createBranch( self.point, self.angle )  #check all parameters entered
+        self.branchStack.append(newBranch)
 
 
 
@@ -140,7 +140,7 @@ class Interpreter:
 
         #Make sure all parameters resetted!!!
 
-        pastBranch = branchStack.pop()
+        pastBranch = self.branchStack.pop()
         self.point = pastBranch["point"]
         self.angle = pastBranch["angle"]
 
@@ -198,4 +198,4 @@ class Interpreter:
 
 #grammar = "F[&+F]F[->FL][&FB]"
 grammar = "F"
-interpreter = Interpreter( grammar, "Tree", 0, 5, 10 )
+interpreter = Interpreter( grammar, "Tree", 0, 5, 10, (0,0,0) )
