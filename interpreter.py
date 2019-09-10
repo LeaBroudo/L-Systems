@@ -1,22 +1,23 @@
 import maya.cmds as cmds
-import numpy as np
+import math
 
-class Interpreter:
+class Make:
 
     #firstBranch = True
     currLevel = 0
     val = 0
     
     branchStack = []  #filled with branches
-    allBranchCurves = [] #all completed branch curves to add polygons to
+    allBranchCurves = [] #all completed branch curve names to add polygons to
 
     
-    def __init__( self, word, name, angle, rad, length, point ):
+    def __init__( self, word, name, angle, angleChange, rad, length, point ):
         # F[&+F]F[->FL][&FB]
 
         self.word = word
         self.name = name
-        self.angle = angle #[0,0,0]
+        self.angle = angle #[theta, phi] = (angle z, angle x)
+        self.angleChange = angleChange
         self.rad = rad
         self.length = length
         self.point = point #usually (0,0,0)
@@ -33,12 +34,12 @@ class Interpreter:
         F/f : Move forward
         L/l : Leaf
         B/b : Blossom
-        +   : Rotate +X
-        -   : Rotate -X
-        ^   : Rotate +Y
-        v   : Rotate -Y
-        <   : Rotate +Z 
-        >   : Rotate -Z 
+        +   : Rotate +theta
+        -   : Rotate -theta
+        ^   : Rotate +phi
+        v   : Rotate -phi
+        #<   : Rotate +Z 
+        #>   : Rotate -Z 
         [   : push turte state to stack
         ]   : pop turtle state from stack
         '''
@@ -50,49 +51,58 @@ class Interpreter:
         if char == 'b' or char == 'B':
             self.createBlossom()     
         if char == '+': 
-            self.rotate(self.angle, 0)  
+            self.rotate(self.angleChange, 0)  
         if char == '-': 
-            self.rotate(self.angle*-1, 0)      
+            self.rotate(self.angleChange*-1, 0)      
         if char == '^': 
-            self.rotate(self.angle, 1)     
+            self.rotate(self.angleChange, 1)     
         if char == 'v': 
-            self.rotate(self.angle*-1, 1)      
-        if char == '<': 
-            self.rotate(self.angle, 2)       
-        if char == '>': 
-            self.rotate(self.angle*-1, 2)
+            self.rotate(self.angleChange*-1, 1)      
+        #if char == '<': 
+        #    self.rotate(self.angleChange, 2)       
+        #if char == '>': 
+        #    self.rotate(self.angleChange*-1, 2)
         if char == '[':
             self.pushToStack() 
         if char == ']':
             self.popFromStack()
 
-    def createBranch( self, point, currAngle ):
+    def createBranch( self, point, currAngle, level ):
+        
+        #make sure has all!!
         
         branch = {
             "point" : point,
-            "angle" : currAngle
+            "angle" : currAngle,
+            "level" : level
         }
 
         return branch
 
     def forward( self ): 
-        #if Interpreter.firstBranch == True:
+        #if Make.firstBranch == True:
 
         #points = [(0, 0, 0), (3, 5, 6), (5, 6, 7), (9, 9, 9)]
         #taper?
         
-        x = self.point[0] + ( self.length * np.sin(self.angle[2]) * np.sin(self.angle[0]) )  #just do the math
-        y = self.point[1] + ( self.length * np.sin(self.angle[2]) * np.cos(self.angle[0]) )
-        z = self.point[2] + ( self.length * np.cos(self.angle[2]) )
+        # spherical to cartesian coordinates
+        x = self.point[0] + ( self.length * math.cos(self.angle[0]) * math.sin(self.angle[1]) )  
+        y = self.point[1] + ( self.length * math.sin(self.angle[0]) * math.sin(self.angle[1]) )
+        z = self.point[2] + ( self.length * math.cos(self.angle[1]) )
         
         nextPoint = ( x, y, z )
         points = [self.point, nextPoint]
 
-        cmds.curve( name=self.name+"_curve"+str(self.val), p=points ) #divisions??? will complain about curve
+        curveName = self.name+"_curve_"+str(self.val)
+        cmds.curve( name=curveName, p=points, d=1 ) #divisions??? will complain about curve
 
 
-        self.val += 1
+        Make.val += 1
+        Make.currLevel += 1
         self.point = nextPoint
+
+
+        Make.allBranchCurves.append(curveName)
 
             
         ### create geometry ###
@@ -119,6 +129,10 @@ class Interpreter:
         """
 
     def rotate( self, newAngle, axis ):
+        
+        #spherical
+        #[theta, phi] = (angle z, angle x)
+        
         self.angle[axis] += newAngle
 
     def pushToStack( self ):
@@ -128,7 +142,7 @@ class Interpreter:
         
         #add val to parameters?
 
-        newBranch = self.createBranch( self.point, self.angle )  #check all parameters entered
+        newBranch = self.createBranch( self.point, self.angle, Make.currLevel )  #check all parameters entered
         self.branchStack.append(newBranch)
 
 
@@ -143,6 +157,10 @@ class Interpreter:
         pastBranch = self.branchStack.pop()
         self.point = pastBranch["point"]
         self.angle = pastBranch["angle"]
+        Make.currLevel = pastBranch["level"]
+
+        
+
 
 
 
@@ -197,5 +215,6 @@ class Interpreter:
 #############
 
 #grammar = "F[&+F]F[->FL][&FB]"
-grammar = "F"
-interpreter = Interpreter( grammar, "Tree", 0, 5, 10, (0,0,0) )
+grammar = "--F"
+#( self, word, name, angle, angleChange, rad, length, point )
+interpreter = Make( grammar, "Tree", [0,0], 10, 5, 10, (0,0,0) )
