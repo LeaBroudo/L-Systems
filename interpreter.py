@@ -85,6 +85,8 @@ class Make:
         #points = [(0, 0, 0), (3, 5, 6), (5, 6, 7), (9, 9, 9)]
         #taper?
         
+        self.length *= .95
+        
         # spherical to cartesian coordinates
         x = self.point[0] + ( self.length * math.cos(self.angle[0]) * math.sin(self.angle[1]) )  
         y = self.point[1] + ( self.length * math.sin(self.angle[0]) * math.sin(self.angle[1]) )
@@ -103,6 +105,9 @@ class Make:
 
 
         Make.allBranchCurves.append(curveName)
+
+        print(curveName + str(x)+ " " + str(y)+ " " + str(z) )
+        #PARENT!!!!
 
             
         ### create geometry ###
@@ -214,7 +219,7 @@ class Make:
 
 #############
 
+grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
 #grammar = "F[&+F]F[->FL][&FB]"
-grammar = "--F"
 #( self, word, name, angle, angleChange, rad, length, point )
 interpreter = Make( grammar, "Tree", [0,0], 10, 5, 10, (0,0,0) )
