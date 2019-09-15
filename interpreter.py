@@ -10,6 +10,15 @@ class Make:
     branchStack = []  #filled with branches
     allBranchCurves = [] #all completed branch curve names to add polygons to
 
+    '''
+    word: (string) the grammar to be used to create the l-systems
+    name: (string) root name of the tree to be created
+    angle: ([i,j,k]) starting angle vector of tree, usually [0,1,0]
+    angleChange: (decimal) a number between (0,1) for the angle to change, should NOT multiply into 1
+    rad: (decimal) radius of the root
+    length: (decimal) staring length of the branch
+    point: ((x,y,z)) starting point of the tree
+    '''
     
     def __init__( self, word, name, angle, angleChange, rad, length, point ):
         # F[&+F]F[->FL][&FB]
@@ -21,6 +30,9 @@ class Make:
         self.rad = rad
         self.length = length
         self.point = point #usually (0,0,0)
+
+        if 1 % self.angleChange == 0:
+            self.angleChange += 0.01
 
         #taper?
 
@@ -34,12 +46,12 @@ class Make:
         F/f : Move forward
         L/l : Leaf
         B/b : Blossom
-        +   : Rotate +theta
-        -   : Rotate -theta
-        ^   : Rotate +phi
-        v   : Rotate -phi
-        #<   : Rotate +Z 
-        #>   : Rotate -Z 
+        +   : +i
+        -   : -i
+        ^   : +j
+        v   : -j
+        <   : +k
+        >   : -k
         [   : push turte state to stack
         ]   : pop turtle state from stack
         '''
@@ -51,30 +63,30 @@ class Make:
         if char == 'b' or char == 'B':
             self.createBlossom()     
         if char == '+': 
-            self.rotate(self.angleChange, 0)  
+            self.rotate(self.angleChange*2, 0)  
         if char == '-': 
             self.rotate(self.angleChange*-1, 0)      
         if char == '^': 
-            self.rotate(self.angleChange, 1)     
+            self.rotate(self.angleChange*1, 1)     
         if char == 'v': 
             self.rotate(self.angleChange*-1, 1)      
-        #if char == '<': 
-        #    self.rotate(self.angleChange, 2)       
-        #if char == '>': 
-        #    self.rotate(self.angleChange*-1, 2)
+        if char == '<': 
+            self.rotate(self.angleChange, 2)       
+        if char == '>': 
+            self.rotate(self.angleChange*-1, 2)
         if char == '[':
             self.pushToStack() 
         if char == ']':
             self.popFromStack()
 
-    def createBranch( self, point, currAngle, level ):
+    def createBranch( self, point, currAngle, length ):
         
         #make sure has all!!
         
         branch = {
             "point" : point,
             "angle" : currAngle,
-            "level" : level
+            "length" : length
         }
 
         return branch
@@ -86,17 +98,24 @@ class Make:
         #taper?
         
         self.length *= .95
+        #(self.length)
         
         # spherical to cartesian coordinates
-        x = self.point[0] + ( self.length * math.cos(self.angle[0]) * math.sin(self.angle[1]) )  
-        y = self.point[1] + ( self.length * math.sin(self.angle[0]) * math.sin(self.angle[1]) )
-        z = self.point[2] + ( self.length * math.cos(self.angle[1]) )
+        #z = self.point[0] + ( self.length * math.cos(self.angle[0]) * math.sin(self.angle[1]) )  
+        #x = self.point[1] + ( self.length * math.sin(self.angle[0]) * math.sin(self.angle[1]) )
+        #y = self.point[2] + ( self.length * math.cos(self.angle[1]) )
+
+        x = self.point[0] + ( self.length * self.angle[0] )  
+        y = self.point[1] + ( self.length * self.angle[1] )  
+        z = self.point[2] + ( self.length * self.angle[2] )  
+
+
         
         nextPoint = ( x, y, z )
         points = [self.point, nextPoint]
 
         curveName = self.name+"_curve_"+str(self.val)
-        cmds.curve( name=curveName, p=points, d=1 ) #divisions??? will complain about curve
+        cmds.curve( name=curveName, p=points, d=1 ) 
 
 
         Make.val += 1
@@ -106,7 +125,7 @@ class Make:
 
         Make.allBranchCurves.append(curveName)
 
-        print(curveName + str(x)+ " " + str(y)+ " " + str(z) )
+        print(curveName + " " + str(x)+ " " + str(y)+ " " + str(z) )
         #PARENT!!!!
 
             
@@ -139,6 +158,19 @@ class Make:
         #[theta, phi] = (angle z, angle x)
         
         self.angle[axis] += newAngle
+        
+        #DO WARNING IF MAG HITS 0
+        if self.angle == [0,0,0]:
+            self.angle[axis] -= newAngle
+        #print("\nangle" + str(self.angle))
+        
+        mag = math.sqrt(math.pow(self.angle[0],2) + math.pow(self.angle[1],2) + math.pow(self.angle[2],2))
+
+        for i in range(len(self.angle)):
+            self.angle[i] /= mag
+
+        print("angle" + str(self.angle) + " mag" + str(mag))
+
 
     def pushToStack( self ):
 
@@ -147,7 +179,7 @@ class Make:
         
         #add val to parameters?
 
-        newBranch = self.createBranch( self.point, self.angle, Make.currLevel )  #check all parameters entered
+        newBranch = self.createBranch( self.point, self.angle, self.length )  #check all parameters entered
         self.branchStack.append(newBranch)
 
 
@@ -162,7 +194,7 @@ class Make:
         pastBranch = self.branchStack.pop()
         self.point = pastBranch["point"]
         self.angle = pastBranch["angle"]
-        Make.currLevel = pastBranch["level"]
+        self.length = pastBranch["length"]
 
         
 
@@ -219,7 +251,9 @@ class Make:
 
 #############
 
-grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
-#grammar = "F[&+F]F[->FL][&FB]"
+#grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
+#grammar = "F[-<[-<F]F[F[->>F+vvF][v+F]]][-<F]F[F[->>F+vvF][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+#grammar = "F[-F][+F]"
+grammar = "F^FvvFvF+F-F"
 #( self, word, name, angle, angleChange, rad, length, point )
-interpreter = Make( grammar, "Tree", [0,0], 10, 5, 10, (0,0,0) )
+interpreter = Make( grammar, "Tree", [0,1,0], .3, 5, 10, (0,0,0) )
