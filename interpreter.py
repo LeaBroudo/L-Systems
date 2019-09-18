@@ -10,6 +10,8 @@ class Make:
     branchStack = []  #filled with branches
     allBranchCurves = [] #all completed branch curve names to add polygons to
 
+    parent = None
+
     '''
     word: (string) the grammar to be used to create the l-systems
     name: (string) root name of the tree to be created
@@ -17,27 +19,50 @@ class Make:
     angleChange: (decimal) a number between (0,1) for the angle to change, should NOT multiply into 1
     rad: (decimal) radius of the root
     length: (decimal) staring length of the branch
+    lengthChange: (decimal) a number between (0,1) for the length to change at each level
     point: ((x,y,z)) starting point of the tree
     '''
     
-    def __init__( self, word, name, angle, angleChange, rad, length, point ):
+    def __init__( self, word, name, angle, angleChange, rad, length, lengthChange, point ):
         # F[&+F]F[->FL][&FB]
 
         self.word = word
         self.name = name
-        self.angle = angle #[theta, phi] = (angle z, angle x)
+        self.angle = angle #[alpha, beta, gamma]
         self.angleChange = angleChange
         self.rad = rad
         self.length = length
+        self.lengthChange = lengthChange
         self.point = point #usually (0,0,0)
-
-        if 1 % self.angleChange == 0:
-            self.angleChange += 0.01
 
         #taper?
 
         for let in self.word:
             self.runCommand(let)
+        
+        #add mesh
+        Make.val = 0
+        for curve in Make.allBranchCurves:
+            trunkName = name + "_trunk_" + str(Make.val)
+            
+            cmds.polyCylinder(name=trunkName, subdivisionsX=5, subdivisionsY=0, r=self.rad)
+            #move cylinder to origin pt
+            
+            print(curve)
+            
+            cmds.select(all=True, deselect=True)
+            cmds.select(trunkName, tgl=True)
+            cmds.select(curve, add=True)
+            cmds.pathAnimation(fractionMode=True, follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
+
+            cmds.select(all=True, deselect=True)
+            cmds.select(trunkName + ".f[6]")
+            cmds.polyExtrudeFacet( inputCurve=curve, d=5 )
+
+            Make.val += 1
+
+        #union all together
+
         
         #add shaders
 
@@ -79,54 +104,48 @@ class Make:
         if char == ']':
             self.popFromStack()
 
-    def createBranch( self, point, currAngle, length ):
-        
-        #make sure has all!!
-        
-        branch = {
-            "point" : point,
-            "angle" : currAngle,
-            "length" : length
-        }
-
-        return branch
-
     def forward( self ): 
-        #if Make.firstBranch == True:
 
-        #points = [(0, 0, 0), (3, 5, 6), (5, 6, 7), (9, 9, 9)]
         #taper?
         
-        self.length *= .95
-        #(self.length)
+        self.length *= self.lengthChange
         
         # spherical to cartesian coordinates
         #z = self.point[0] + ( self.length * math.cos(self.angle[0]) * math.sin(self.angle[1]) )  
         #x = self.point[1] + ( self.length * math.sin(self.angle[0]) * math.sin(self.angle[1]) )
         #y = self.point[2] + ( self.length * math.cos(self.angle[1]) )
 
-        x = self.point[0] + ( self.length * self.angle[0] )  
-        y = self.point[1] + ( self.length * self.angle[1] )  
-        z = self.point[2] + ( self.length * self.angle[2] )  
+        x = self.point[0] + ( self.length * math.cos(self.angle[0]) )  
+        y = self.point[1] + ( self.length * math.cos(self.angle[1]) )  
+        z = self.point[2] + ( self.length * math.cos(self.angle[2]) )  
 
-
-        
+        #SOMETHING IS WRONG WITH THIS
         nextPoint = ( x, y, z )
-        points = [self.point, nextPoint]
+        midpoint_1 = ( self.point[0] + .3*x, self.point[1] + .3*y, self.point[2] + .3*z )
+        midpoint_2 = ( self.point[0] + .6*x, self.point[1] + .6*y, self.point[2] + .6*z )
+        points = [self.point, midpoint_1, midpoint_2, nextPoint]
+        print(points)
+        #points = [self.point, nextPoint]
 
         curveName = self.name+"_curve_"+str(self.val)
-        cmds.curve( name=curveName, p=points, d=1 ) 
+        cmds.curve( name=curveName, p=points, d=3 ) 
 
 
         Make.val += 1
         Make.currLevel += 1
         self.point = nextPoint
 
-
-        Make.allBranchCurves.append(curveName)
-
-        print(curveName + " " + str(x)+ " " + str(y)+ " " + str(z) )
+        #print(curveName + " " + str(x)+ " " + str(y)+ " " + str(z) )
+        print(curveName + " " + str(self.length) + "\n" )
+        
         #PARENT!!!!
+        #if( Make.parent != None ):
+            #cmds.parent(curveName, Make.parent)
+        
+        Make.parent = curveName
+
+        #Completed branch added to array
+        Make.allBranchCurves.append(curveName)
 
             
         ### create geometry ###
@@ -153,23 +172,12 @@ class Make:
         """
 
     def rotate( self, newAngle, axis ):
-        
-        #spherical
-        #[theta, phi] = (angle z, angle x)
-        
+    
         self.angle[axis] += newAngle
-        
-        #DO WARNING IF MAG HITS 0
-        if self.angle == [0,0,0]:
-            self.angle[axis] -= newAngle
-        #print("\nangle" + str(self.angle))
         
         mag = math.sqrt(math.pow(self.angle[0],2) + math.pow(self.angle[1],2) + math.pow(self.angle[2],2))
 
-        for i in range(len(self.angle)):
-            self.angle[i] /= mag
-
-        print("angle" + str(self.angle) + " mag" + str(mag))
+        #print("angle" + str(self.angle) + " mag" + str(mag))
 
 
     def pushToStack( self ):
@@ -179,7 +187,15 @@ class Make:
         
         #add val to parameters?
 
-        newBranch = self.createBranch( self.point, self.angle, self.length )  #check all parameters entered
+        
+        newBranch = {
+            "point" : self.point,
+            "angle" : self.angle,
+            "length" : self.length,
+            "parent" : Make.parent
+        }
+        #check all parameters entered!!!
+
         self.branchStack.append(newBranch)
 
 
@@ -195,6 +211,7 @@ class Make:
         self.point = pastBranch["point"]
         self.angle = pastBranch["angle"]
         self.length = pastBranch["length"]
+        Make.parent = pastBranch["parent"]
 
         
 
@@ -252,8 +269,8 @@ class Make:
 #############
 
 #grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
-#grammar = "F[-<[-<F]F[F[->>F+vvF][v+F]]][-<F]F[F[->>F+vvF][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
 #grammar = "F[-F][+F]"
-grammar = "F^FvvFvF+F-F"
-#( self, word, name, angle, angleChange, rad, length, point )
-interpreter = Make( grammar, "Tree", [0,1,0], .3, 5, 10, (0,0,0) )
+#grammar = "F"
+#( self, word, name, angle, angleChange, rad, length, lengthChange, point )
+interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 2, 10, .95, (0,0,0) )
