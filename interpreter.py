@@ -45,23 +45,29 @@ class Make:
         for curve in Make.allBranchCurves:
             trunkName = name + "_trunk_" + str(Make.val)
             
-            cmds.polyCylinder(name=trunkName, subdivisionsX=5, subdivisionsY=0, r=self.rad)
+            cmds.polyCylinder(name=trunkName, subdivisionsX=5, subdivisionsY=1, r=self.rad)
             #move cylinder to origin pt
+            #cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
             
             print(curve)
             
             cmds.select(all=True, deselect=True)
             cmds.select(trunkName, tgl=True)
             cmds.select(curve, add=True)
-            cmds.pathAnimation(fractionMode=True, follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
+            cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
+            
+            #cmds.select( all=True, deselect=True)
+            #cmds.select(trunkName)
+            #cmds.move( .2, objectSpace=True, moveY=True )
+
 
             cmds.select(all=True, deselect=True)
             cmds.select(trunkName + ".f[6]")
-            cmds.polyExtrudeFacet( inputCurve=curve, d=5 )
+            cmds.polyExtrudeFacet( inputCurve=curve, d=1 )
 
             Make.val += 1
 
-        #union all together
+        #union all together, and smooth!!
 
         
         #add shaders
@@ -119,10 +125,19 @@ class Make:
         y = self.point[1] + ( self.length * math.cos(self.angle[1]) )  
         z = self.point[2] + ( self.length * math.cos(self.angle[2]) )  
 
-        #SOMETHING IS WRONG WITH THIS
+        
         nextPoint = ( x, y, z )
-        midpoint_1 = ( self.point[0] + .3*x, self.point[1] + .3*y, self.point[2] + .3*z )
-        midpoint_2 = ( self.point[0] + .6*x, self.point[1] + .6*y, self.point[2] + .6*z )
+        diff = ( x-self.point[0], y-self.point[1], z-self.point[2] )
+
+        #Dr. Seuss Curvy Trees
+        #midpoint_1 = ( self.point[0] + .3*x, self.point[1] + .3*y, self.point[2] + .3*z )
+        #midpoint_2 = ( self.point[0] + .6*x, self.point[1] + .6*y, self.point[2] + .6*z )
+        
+        
+        midpoint_1 = ( self.point[0] + .3*diff[0], self.point[1] + .3*diff[1], self.point[2] + .3*diff[2] )
+        midpoint_2 = ( self.point[0] + .6*diff[0], self.point[1] + .6*diff[1], self.point[2] + .6*diff[2] )
+        
+        
         points = [self.point, midpoint_1, midpoint_2, nextPoint]
         print(points)
         #points = [self.point, nextPoint]
@@ -147,19 +162,6 @@ class Make:
         #Completed branch added to array
         Make.allBranchCurves.append(curveName)
 
-            
-        ### create geometry ###
-        #cmds.polyCylinder(name="base", subdivisionsX=5, subdivisionsY=0, r=5)
-        #move cylinder to origin pt
-        #cmds.select("curve")
-        #cmds.select("base", tgl=True)
-        #path = cmds.pathAnimation(fractionMode=True, follow=True, followAxis='y', upAxis='x', startTimeU=True) #move polygon to start and align with normal
-
-        #cmds.select("base", deselect=True)
-        #cmds.select("base.f[13]")
-        #cmds.polyExtrudeFacet( inputCurve="curve", d=10 )
-
-        #union all together
 
     def createLeaf( self ):
         """
@@ -269,8 +271,8 @@ class Make:
 #############
 
 #grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
-grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+#grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
 #grammar = "F[-F][+F]"
-#grammar = "F"
+grammar = "F--F"
 #( self, word, name, angle, angleChange, rad, length, lengthChange, point )
 interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 2, 10, .95, (0,0,0) )
