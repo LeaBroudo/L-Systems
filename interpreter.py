@@ -42,6 +42,7 @@ class Make:
         
         #add mesh
         Make.val = 0
+        totalTree = ""
         for curve in Make.allBranchCurves:
             trunkName = name + "_trunk_" + str(Make.val)
             
@@ -56,6 +57,8 @@ class Make:
             cmds.select(curve, add=True)
             cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
             
+            
+            
             #cmds.select( all=True, deselect=True)
             #cmds.select(trunkName)
             #cmds.move( .2, objectSpace=True, moveY=True )
@@ -67,7 +70,34 @@ class Make:
 
             Make.val += 1
 
+            #union of all
+            #if( totalTree == "" ):
+            #    totalTree = trunkName
+            #else:
+                #parent?
+            #    cmds.select( all=True, deselect=True)
+            #    cmds.select(trunkName, tgl=True)
+            #    cmds.select(totalTree, add=True)
+            #    cmds.polyBoolOp( totalTree, trunkName, op=1, n=totalTree )
+            
+
         #union all together, and smooth!!
+        totalTree = "Total_Tree"
+        for val in range(0, Make.val): #might be one off?
+            
+            cmds.select( clear=True )
+            cmds.select("Tree_trunk_" + str(val+1), add=True)
+
+            if val == 0:
+                cmds.select("Tree_trunk_" + str(val))
+                cmds.polyBoolOp( "Tree_trunk_" + str(val), "Tree_trunk_" + str(val+1), op=1, n=totalTree )
+            else:
+                cmds.select(totalTree)
+                cmds.polyBoolOp( totalTree, "Tree_trunk_" + str(val+1), op=1, n=totalTree )
+            
+            
+            
+            
 
         
         #add shaders
@@ -268,8 +298,8 @@ class Make:
 #############
 
 #grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
-#grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
 #grammar = "F[-F][+F]"
-grammar = "F--F"
+#grammar = "F--F"
 #( self, word, name, angle, angleChange, rad, length, lengthChange, point )
 interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 2, 10, .95, (0,0,0) )
