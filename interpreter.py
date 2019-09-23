@@ -114,41 +114,38 @@ class Make:
 
         #taper?
         
+        #Decreases length during depth change
         self.length *= self.lengthChange
-        
-        # spherical to cartesian coordinates
-        #z = self.point[0] + ( self.length * math.cos(self.angle[0]) * math.sin(self.angle[1]) )  
-        #x = self.point[1] + ( self.length * math.sin(self.angle[0]) * math.sin(self.angle[1]) )
-        #y = self.point[2] + ( self.length * math.cos(self.angle[1]) )
 
+        #endpoint
         x = self.point[0] + ( self.length * math.cos(self.angle[0]) )  
         y = self.point[1] + ( self.length * math.cos(self.angle[1]) )  
         z = self.point[2] + ( self.length * math.cos(self.angle[2]) )  
-
-        
-        nextPoint = ( x, y, z )
+        endPoint = ( x, y, z )
         diff = ( x-self.point[0], y-self.point[1], z-self.point[2] )
 
         #Dr. Seuss Curvy Trees
         #midpoint_1 = ( self.point[0] + .3*x, self.point[1] + .3*y, self.point[2] + .3*z )
         #midpoint_2 = ( self.point[0] + .6*x, self.point[1] + .6*y, self.point[2] + .6*z )
         
-        
+        #creates two points to go along curve
         midpoint_1 = ( self.point[0] + .3*diff[0], self.point[1] + .3*diff[1], self.point[2] + .3*diff[2] )
         midpoint_2 = ( self.point[0] + .6*diff[0], self.point[1] + .6*diff[1], self.point[2] + .6*diff[2] )
         
-        
-        points = [self.point, midpoint_1, midpoint_2, nextPoint]
+        #creates array of curve points
+        points = [self.point, midpoint_1, midpoint_2, endPoint]
         print(points)
-        #points = [self.point, nextPoint]
 
+
+        #Names Curve
         curveName = self.name+"_curve_"+str(self.val)
         cmds.curve( name=curveName, p=points, d=3 ) 
 
-
+        #Updates settings
         Make.val += 1
         Make.currLevel += 1
-        self.point = nextPoint
+        self.point = endPoint
+        Make.parent = curveName
 
         #print(curveName + " " + str(x)+ " " + str(y)+ " " + str(z) )
         print(curveName + " " + str(self.length) + "\n" )
@@ -157,7 +154,7 @@ class Make:
         #if( Make.parent != None ):
             #cmds.parent(curveName, Make.parent)
         
-        Make.parent = curveName
+        
 
         #Completed branch added to array
         Make.allBranchCurves.append(curveName)
