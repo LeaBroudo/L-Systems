@@ -1,5 +1,6 @@
 import maya.cmds as cmds
 import math
+import copy
 
 class Make:
 
@@ -9,6 +10,7 @@ class Make:
     
     branchStack = []  #filled with branches
     allBranchCurves = [] #all completed branch curve names to add polygons to
+    prevPoints = [] #used for error checking if a curve has already been placed in the position
 
     parent = None
 
@@ -37,65 +39,18 @@ class Make:
 
         #taper?
 
+        #runs the commands in the grammar to create curve skeleton of tree
         for let in self.word:
             self.runCommand(let)
         
-        #add mesh
-        Make.val = 0
-        totalTree = ""
-        for curve in Make.allBranchCurves:
-            trunkName = name + "_trunk_" + str(Make.val)
-            
-            cmds.polyCylinder(name=trunkName, subdivisionsX=5, subdivisionsY=1, r=self.rad)
-            #move cylinder to origin pt
-            #cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
-            
-            print(curve)
-            
-            cmds.select(all=True, deselect=True)
-            cmds.select(trunkName, tgl=True)
-            cmds.select(curve, add=True)
-            cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
-            
-            
-            
-            #cmds.select( all=True, deselect=True)
-            #cmds.select(trunkName)
-            #cmds.move( .2, objectSpace=True, moveY=True )
+        #Adds polygon mesh to skeleton
+        self.addMesh()
 
+        #Unions polygons together, averages vertices a bit
+        self.cleanUp()
 
-            cmds.select(all=True, deselect=True)
-            cmds.select(trunkName + ".f[6]")
-            cmds.polyExtrudeFacet( inputCurve=curve, d=1 )
-
-            Make.val += 1
-
-            #union of all
-            #if( totalTree == "" ):
-            #    totalTree = trunkName
-            #else:
-                #parent?
-            #    cmds.select( all=True, deselect=True)
-            #    cmds.select(trunkName, tgl=True)
-            #    cmds.select(totalTree, add=True)
-            #    cmds.polyBoolOp( totalTree, trunkName, op=1, n=totalTree )
-            
-
-        #union all together, and smooth!!
-        totalTree = "Total_Tree"
-        for val in range(0, Make.val): #might be one off?
-            
-            cmds.select( clear=True )
-            cmds.select("Tree_trunk_" + str(val+1), add=True)
-
-            if val == 0:
-                cmds.select("Tree_trunk_" + str(val))
-                cmds.polyBoolOp( "Tree_trunk_" + str(val), "Tree_trunk_" + str(val+1), op=1, n=totalTree )
-            else:
-                cmds.select(totalTree)
-                cmds.polyBoolOp( totalTree, "Tree_trunk_" + str(val+1), op=1, n=totalTree )
-            
-            
+        
+        
             
             
 
@@ -164,8 +119,15 @@ class Make:
         
         #creates array of curve points
         points = [self.point, midpoint_1, midpoint_2, endPoint]
-        print(points)
+        #(points)
 
+        #if a curve has aready been placed at that point, returns and does not finish forward function
+        for prev in Make.prevPoints:
+            if points == prev:
+                self.point = endPoint #makes sure that the start point for the next curve is correct
+                return  
+        #If no curve placed there, curve points placed into prevPoints array
+        Make.prevPoints.append(points)
 
         #Names Curve
         curveName = self.name+"_curve_"+str(self.val)
@@ -178,7 +140,7 @@ class Make:
         Make.parent = curveName
 
         #print(curveName + " " + str(x)+ " " + str(y)+ " " + str(z) )
-        print(curveName + " " + str(self.length) + "\n" )
+        #print(curveName + " " + str(self.length) + "\n" )
         
         #PARENT!!!!
         #if( Make.parent != None ):
@@ -204,7 +166,7 @@ class Make:
     
         self.angle[axis] += newAngle
         
-        mag = math.sqrt(math.pow(self.angle[0],2) + math.pow(self.angle[1],2) + math.pow(self.angle[2],2))
+        #mag = math.sqrt(math.pow(self.angle[0],2) + math.pow(self.angle[1],2) + math.pow(self.angle[2],2))
 
         #print("angle" + str(self.angle) + " mag" + str(mag))
 
@@ -218,14 +180,16 @@ class Make:
 
         
         newBranch = {
-            "point" : self.point,
-            "angle" : self.angle,
-            "length" : self.length,
-            "parent" : Make.parent
+            "point" : copy.deepcopy(self.point),
+            "angle" : copy.deepcopy(self.angle),
+            "length" : copy.deepcopy(self.length),
+            "parent" : copy.deepcopy(Make.parent)
         }
         #check all parameters entered!!!
 
         self.branchStack.append(newBranch)
+        print("pushed")
+        print(newBranch)
 
 
 
@@ -241,12 +205,50 @@ class Make:
         self.angle = pastBranch["angle"]
         self.length = pastBranch["length"]
         Make.parent = pastBranch["parent"]
+        print("popped")
+        print(pastBranch)
 
         
+    def addMesh( self ):
+        Make.val = 0
+        
+        for curve in Make.allBranchCurves:
+            
+            trunkName = self.name + "_trunk_" + str(Make.val)
+            
+            cmds.polyCylinder(name=trunkName, subdivisionsX=5, subdivisionsY=1, r=self.rad)
+            #move cylinder to origin pt
+            #cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
+            
+
+            
+            cmds.select(all=True, deselect=True)
+            cmds.select(trunkName, tgl=True)
+            cmds.select(curve, add=True)
+            cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
+            
+            cmds.select(all=True, deselect=True)
+            cmds.select(trunkName + ".f[6]")
+            cmds.polyExtrudeFacet( inputCurve=curve, d=1 )
+
+            Make.val += 1
 
 
+    def cleanUp( self ):
+        #union all together, and smooth!!
+        
+        #works range 0-6
+        for sectNum in range(0, Make.val-1): #might be one off?
 
-
+            #Unions pairs of two branches into "sections"
+            if sectNum == 0:
+                firstB = "Tree_trunk_"+str(sectNum)  #Tree_trunk_0
+                secondB = "Tree_trunk_"+str(sectNum+1)  #Tree_trunk_1
+                cmds.polyBoolOp( firstB, secondB, op=1, n="sect_"+str(sectNum) ) #sect_0
+            else:
+                lastSect = "sect_"+str(sectNum-1)
+                nextB = "Tree_trunk_"+str(sectNum+1)
+                cmds.polyBoolOp( lastSect, nextB, op=1, n="sect_"+str(sectNum) )
 
 
 
@@ -277,29 +279,13 @@ class Make:
         """
         #applies correct shader based on geometry
 
-    def createSegment( self, word, rules, ogPosX, ogPosY, ogPosZ , ogRotX, ogRotY, ogRotZ, subdiv, currlevel, lenScale, radScale, branchColor ):
-        """
-        TODO
-        """
-        #Why not extrude out of previous branch instead?
-        # make new cmds.polyCylinder
-        # cmds.xform?
-        # apply shader
-        # parent branch 
 
-    def createGeometry( self, word, rad, stepLen, angle, subDiv, lenScale, radScale, turtleSpeed, branchColor, leafColor, blossomColor ):
-        """
-        TODO
-        """
-
-        # set intl pos and rot as 0,0,0
-        # iterate over each string character, find what it is (F, +, [,...)
 
 #############
 
 #grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
 grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
-#grammar = "F[-F][+F]"
-#grammar = "F--F"
+#grammar = "F[-F][+F]F"
+#grammar = "F[-F]FF"
 #( self, word, name, angle, angleChange, rad, length, lengthChange, point )
-interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 2, 10, .95, (0,0,0) )
+interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, 10, .95, (0,0,0) )
