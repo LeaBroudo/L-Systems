@@ -12,7 +12,7 @@ class Make:
     allBranchCurves = [] #all completed branch curve names to add polygons to
     prevPoints = [] #used for error checking if a curve has already been placed in the position
 
-    parent = None
+    parent = ""
 
     '''
     word: (string) the grammar to be used to create the l-systems
@@ -47,7 +47,7 @@ class Make:
         self.addMesh()
 
         #Unions polygons together, averages vertices a bit
-        self.cleanUp()
+        #self.cleanUp()
 
         
         
@@ -97,8 +97,6 @@ class Make:
 
     def forward( self ): 
 
-        #taper?
-        
         #Decreases length during depth change
         self.length *= self.lengthChange
 
@@ -109,10 +107,6 @@ class Make:
         endPoint = ( x, y, z )
         diff = ( x-self.point[0], y-self.point[1], z-self.point[2] )
 
-        #Dr. Seuss Curvy Trees
-        #midpoint_1 = ( self.point[0] + .3*x, self.point[1] + .3*y, self.point[2] + .3*z )
-        #midpoint_2 = ( self.point[0] + .6*x, self.point[1] + .6*y, self.point[2] + .6*z )
-        
         #creates two points to go along curve
         midpoint_1 = ( self.point[0] + .3*diff[0], self.point[1] + .3*diff[1], self.point[2] + .3*diff[2] )
         midpoint_2 = ( self.point[0] + .6*diff[0], self.point[1] + .6*diff[1], self.point[2] + .6*diff[2] )
@@ -130,7 +124,17 @@ class Make:
         Make.prevPoints.append(points)
 
         #Names Curve
-        curveName = self.name+"_curve_"+str(self.val)
+        #gets parent curve number to append to curve name
+        parentNum = ""
+        if Make.parent != "":
+            index = len(self.name)+len("_curve_")
+            currChar = Make.parent[index]
+            while(currChar != "_"):
+                parentNum += currChar
+                index += 1
+                currChar = Make.parent[index]
+        
+        curveName = self.name+"_curve_"+str(self.val)+"_p_"+parentNum
         cmds.curve( name=curveName, p=points, d=3 ) 
 
         #Updates settings
@@ -210,35 +214,50 @@ class Make:
 
         
     def addMesh( self ):
-        Make.val = 0
         
+        Make.val = 0
+
         for curve in Make.allBranchCurves:
             
-            trunkName = self.name + "_trunk_" + str(Make.val)
+            #Names trunk and finds parent trunk number to append to name
+            startIdx = len(self.name) + len("_curve_")
+            trunkName = self.name + "_trunk_" + curve[11:]
             
-            cmds.polyCylinder(name=trunkName, subdivisionsX=5, subdivisionsY=1, r=self.rad)
-            #move cylinder to origin pt
-            #cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
+            #Updates the redius based on tree depth
+            
+            
+            #Creates cylinder and moves it to the origin pt 
+            cmds.polyCylinder(name=trunkName, subdivisionsX=20, subdivisionsY=1, r=self.rad)
+            cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
             
 
             
-            cmds.select(all=True, deselect=True)
+            cmds.select(clear=True)
             cmds.select(trunkName, tgl=True)
             cmds.select(curve, add=True)
             cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
             
-            cmds.select(all=True, deselect=True)
-            cmds.select(trunkName + ".f[6]")
+            cmds.select(clear=True)
+            #cmds.select(trunkName + ".f[6]")
+            cmds.select(trunkName + ".f[26]")
             cmds.polyExtrudeFacet( inputCurve=curve, d=1 )
 
             Make.val += 1
 
 
     def cleanUp( self ):
+        
+        '''
+        This is impossible without an external script. Maya's booleans are to finnicky 
+        to work with and make the mesh just dissapear. :(
+        '''
+        
+        
         #union all together, and smooth!!
         
         #works range 0-6
-        for sectNum in range(0, Make.val-1): #might be one off?
+        for sectNum in range(0, Make.val-1): 
+        #for sectNum in range(0, 2): 
 
             #Unions pairs of two branches into "sections"
             if sectNum == 0:
@@ -283,9 +302,9 @@ class Make:
 
 #############
 
-#grammar = "F[-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]L][-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]][-[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]B-vv[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]][v>[-[-FL]F[F[-FB-vvF][v>F]]L][-FL]F[F[-FB-vvF][v>F]][[-FL]F[F[-FB-vvF][v>F]][-[-FL]F[F[-FB-vvF][v>F]]B-vv[-FL]F[F[-FB-vvF][v>F]]][v>[-FL]F[F[-FB-vvF][v>F]]]]]]"
-grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+#grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+grammar = "[-[-F]F[F[-F-vv>F][v>F]]]F[+F][-F][vF][^F]F[F[+F][-F][vF][^F]F[-[-F]F[F[-F-vv>F][v>F]]-vv>F[+F][-F][vF][^F]F][v>[-F]F[F[-F-vv>F][v>F]]]]"
 #grammar = "F[-F][+F]F"
 #grammar = "F[-F]FF"
 #( self, word, name, angle, angleChange, rad, length, lengthChange, point )
-interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, 10, .95, (0,0,0) )
+interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, .5, 10, .95, (0,0,0) )
