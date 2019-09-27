@@ -10,6 +10,7 @@ class Make:
     
     branchStack = []  #filled with branches
     allBranchCurves = [] #all completed branch curve names to add polygons to
+    allTrunks = []
     prevPoints = [] #used for error checking if a curve has already been placed in the position
 
     parent = ""
@@ -25,7 +26,7 @@ class Make:
     point: ((x,y,z)) starting point of the tree
     '''
     
-    def __init__( self, word, name, angle, angleChange, rad, length, lengthChange, point ):
+    def __init__( self, word, name, angle, angleChange, rad, radChange, length, lengthChange, point ):
         # F[&+F]F[->FL][&FB]
 
         self.word = word
@@ -33,6 +34,7 @@ class Make:
         self.angle = angle #[alpha, beta, gamma]
         self.angleChange = angleChange
         self.rad = rad
+        self.radChange = radChange
         self.length = length
         self.lengthChange = lengthChange
         self.point = point #usually (0,0,0)
@@ -221,9 +223,7 @@ class Make:
             
             #Names trunk and finds parent trunk number to append to name
             startIdx = len(self.name) + len("_curve_")
-            trunkName = self.name + "_trunk_" + curve[11:]
-            
-            #Updates the redius based on tree depth
+            trunkName = self.name + "_trunk_" + curve[startIdx:]
             
             
             #Creates cylinder and moves it to the origin pt 
@@ -237,19 +237,43 @@ class Make:
             cmds.select(curve, add=True)
             cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
             
+            #Selects the face to scale and extrude
             cmds.select(clear=True)
-            #cmds.select(trunkName + ".f[6]")
+            #cmds.select(trunkName + ".f[26]")
             cmds.select(trunkName + ".f[26]")
-            cmds.polyExtrudeFacet( inputCurve=curve, d=1 )
+            
+
+            #Updates the radius based on tree depth
+            parentNum = curve.split("_")[-1]
+            scale = [1,1,1]
+            currentRad = copy.copy(self.rad) #current radius of the cylinder
+            parentName = self.name+"_trunk_"+str(parentNum)
+            if parentNum != "p": #if there is a parent 
+                print("here1")
+                
+                for trunks in Make.allTrunks:
+                    print("here2")
+                    if trunks[0][:len(parentName)] == parentName:
+                        print("here3")
+                        self.rad = trunks[1] * self.radChange #radius the cylinder should be scaled to
+                        scale = [currentRad/self.rad for i in range(3)]
+                        print(currentRad)
+                        print(self.rad)
+        
+
+            #extrudes along curve
+            cmds.polyExtrudeFacet( inputCurve=curve, d=1, localScale=scale )
 
             Make.val += 1
+            Make.allTrunks.append([trunkName,self.rad])
+            print(Make.allTrunks)
 
 
     def cleanUp( self ):
         
         '''
         This is impossible without an external script. Maya's booleans are to finnicky 
-        to work with and make the mesh just dissapear. :(
+        to work with and make the mesh just disappear. :(
         '''
         
         
@@ -302,9 +326,9 @@ class Make:
 
 #############
 
-#grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
-grammar = "[-[-F]F[F[-F-vv>F][v>F]]]F[+F][-F][vF][^F]F[F[+F][-F][vF][^F]F[-[-F]F[F[-F-vv>F][v>F]]-vv>F[+F][-F][vF][^F]F][v>[-F]F[F[-F-vv>F][v>F]]]]"
+grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+#grammar = "[-[-F]F[F[-F-vv>F][v>F]]]F[+F][-F][vF][^F]F[F[+F][-F][vF][^F]F[-[-F]F[F[-F-vv>F][v>F]]-vv>F[+F][-F][vF][^F]F][v>[-F]F[F[-F-vv>F][v>F]]]]"
 #grammar = "F[-F][+F]F"
-#grammar = "F[-F]FF"
-#( self, word, name, angle, angleChange, rad, length, lengthChange, point )
-interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, .5, 10, .95, (0,0,0) )
+#grammar = "F"
+#( self, word, name, angle, angleChange, rad, radChange, length, lengthChange, point )
+interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, .7, .9, 10, .95, (0,0,0) )
