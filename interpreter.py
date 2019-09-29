@@ -21,6 +21,7 @@ class Make:
     angle: ([i,j,k]) starting angle vector of tree, usually [0,1,0]
     angleChange: (decimal) a number between (0,1) for the angle to change, should NOT multiply into 1
     rad: (decimal) radius of the root
+    radChange: (decimal) a number between (0,1) for the radius to decrease along a branch
     length: (decimal) staring length of the branch
     lengthChange: (decimal) a number between (0,1) for the length to change at each level
     point: ((x,y,z)) starting point of the tree
@@ -70,7 +71,7 @@ class Make:
         v   : -j
         <   : +k
         >   : -k
-        [   : push turte state to stack
+        [   : push turtle state to stack
         ]   : pop turtle state from stack
         '''
 
@@ -117,45 +118,42 @@ class Make:
         points = [self.point, midpoint_1, midpoint_2, endPoint]
         #(points)
 
+        #This was too help stop some errors when I was trying to Union
         #if a curve has aready been placed at that point, returns and does not finish forward function
-        for prev in Make.prevPoints:
-            if points == prev:
-                self.point = endPoint #makes sure that the start point for the next curve is correct
-                return  
+        #for prev in Make.prevPoints:
+        #    if points == prev:
+        #       self.point = endPoint #makes sure that the start point for the next curve is correct
+        #        return  
         #If no curve placed there, curve points placed into prevPoints array
-        Make.prevPoints.append(points)
+        #Make.prevPoints.append(points)
 
         #Names Curve
-        #gets parent curve number to append to curve name
+        #gets parent curve number to append to curve name MAKE INTO SPLIT
         parentNum = ""
         if Make.parent != "":
-            index = len(self.name)+len("_curve_")
-            currChar = Make.parent[index]
-            while(currChar != "_"):
-                parentNum += currChar
-                index += 1
-                currChar = Make.parent[index]
+            parentNum = Make.parent.split("_")[2]
         
         curveName = self.name+"_curve_"+str(self.val)+"_p_"+parentNum
         cmds.curve( name=curveName, p=points, d=3 ) 
 
+        #Completed branch added to array
+        newBranch = {
+            "name" : curveName,
+            "point" : copy.deepcopy(self.point),
+            "angle" : copy.deepcopy(self.angle),
+            "length" : copy.deepcopy(self.length),
+            "parent" : copy.deepcopy(Make.parent),
+            "baseRad" : copy.deepcopy(self.rad),
+            "tipRad" : copy.deepcopy(self.rad) * self.radChange
+        }
+        Make.allBranchCurves.append(newBranch)
+        
         #Updates settings
         Make.val += 1
         Make.currLevel += 1
         self.point = endPoint
         Make.parent = curveName
-
-        #print(curveName + " " + str(x)+ " " + str(y)+ " " + str(z) )
-        #print(curveName + " " + str(self.length) + "\n" )
-        
-        #PARENT!!!!
-        #if( Make.parent != None ):
-            #cmds.parent(curveName, Make.parent)
-        
-        
-
-        #Completed branch added to array
-        Make.allBranchCurves.append(curveName)
+        self.rad *= self.radChange
 
 
     def createLeaf( self ):
@@ -189,13 +187,13 @@ class Make:
             "point" : copy.deepcopy(self.point),
             "angle" : copy.deepcopy(self.angle),
             "length" : copy.deepcopy(self.length),
-            "parent" : copy.deepcopy(Make.parent)
+            "parent" : copy.deepcopy(Make.parent),
+            "radius" : copy.deepcopy(self.rad)
         }
         #check all parameters entered!!!
 
         self.branchStack.append(newBranch)
-        print("pushed")
-        print(newBranch)
+        
 
 
 
@@ -211,8 +209,9 @@ class Make:
         self.angle = pastBranch["angle"]
         self.length = pastBranch["length"]
         Make.parent = pastBranch["parent"]
-        print("popped")
-        print(pastBranch)
+        self.rad = pastBranch["radius"]
+
+
 
         
     def addMesh( self ):
@@ -221,52 +220,39 @@ class Make:
 
         for curve in Make.allBranchCurves:
             
-            #Names trunk and finds parent trunk number to append to name
+            #Names trunk 
             startIdx = len(self.name) + len("_curve_")
-            trunkName = self.name + "_trunk_" + curve[startIdx:]
+            trunkName = self.name + "_trunk_" + curve["name"][startIdx:]
             
+
             
             #Creates cylinder and moves it to the origin pt 
-            cmds.polyCylinder(name=trunkName, subdivisionsX=20, subdivisionsY=1, r=self.rad)
+            cmds.polyCylinder(name=trunkName, subdivisionsX=20, subdivisionsY=1, r=curve["baseRad"])
             cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
             
 
-            
+            #move polygon to start and align with normal
             cmds.select(clear=True)
             cmds.select(trunkName, tgl=True)
-            cmds.select(curve, add=True)
-            cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) #move polygon to start and align with normal
+            cmds.select(curve["name"], add=True)
+            cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) 
             
             #Selects the face to scale and extrude
             cmds.select(clear=True)
-            #cmds.select(trunkName + ".f[26]")
             cmds.select(trunkName + ".f[26]")
             
 
-            #Updates the radius based on tree depth
-            parentNum = curve.split("_")[-1]
-            scale = [1,1,1]
-            currentRad = copy.copy(self.rad) #current radius of the cylinder
-            parentName = self.name+"_trunk_"+str(parentNum)
-            if parentNum != "p": #if there is a parent 
-                print("here1")
-                
-                for trunks in Make.allTrunks:
-                    print("here2")
-                    if trunks[0][:len(parentName)] == parentName:
-                        print("here3")
-                        self.rad = trunks[1] * self.radChange #radius the cylinder should be scaled to
-                        scale = [currentRad/self.rad for i in range(3)]
-                        print(currentRad)
-                        print(self.rad)
+            #get Scale of decreased radius
+            scale = [curve["tipRad"]/curve["baseRad"] for i in range(3)]  
         
 
             #extrudes along curve
-            cmds.polyExtrudeFacet( inputCurve=curve, d=1, localScale=scale )
+            cmds.polyExtrudeFacet( inputCurve=curve["name"], d=1, localScale=scale )
 
             Make.val += 1
             Make.allTrunks.append([trunkName,self.rad])
-            print(Make.allTrunks)
+            #print(Make.allTrunks)
+
 
 
     def cleanUp( self ):
@@ -324,11 +310,12 @@ class Make:
 
 
 
-#############
+#############                         
 
-grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+#grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
+grammar = "F[vv>>F][^^<<F][vv>>F[vv>>F][^^<<F]][^^<<F[vv>>F][^^<<F]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][vv>>F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][vv>>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]]]][^^<<F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][--<F[vv>>F][^^<<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][^^<<F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]]][^^<<F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][vv>>F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]][++>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]]]][vv>>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][vv>>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][++>F[vv>>F][^^<<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]][++>F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]][++>F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][--<F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[vv>>F][^^<<F]]][++>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[vv>>F][^^<<F]]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][++>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]]][^^<<F[vv>>F][^^<<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]]]]]"
 #grammar = "[-[-F]F[F[-F-vv>F][v>F]]]F[+F][-F][vF][^F]F[F[+F][-F][vF][^F]F[-[-F]F[F[-F-vv>F][v>F]]-vv>F[+F][-F][vF][^F]F][v>[-F]F[F[-F-vv>F][v>F]]]]"
-#grammar = "F[-F][+F]F"
+#grammar = "F[-F[F]]"
 #grammar = "F"
 #( self, word, name, angle, angleChange, rad, radChange, length, lengthChange, point )
-interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, .7, .9, 10, .95, (0,0,0) )
+interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, .8, 10, .95, (0,0,0) )
