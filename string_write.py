@@ -61,4 +61,5 @@ def writeString( word, rules, depth ):
 
         return writeString( temp, rules, depth-1 )
 
-#print writeString( 'F', [[100, 'F','[-FL]F[F[-FB-&&>F][&>F]]']],3 )
+#print(writeString( 'F', [[100, 'F','[-<F]F[F[->>F+^^F][v+F]]']],2 ))
+#print(writeString( 'F', [[70, 'F','F[+F][-F][vF][^F]F'],[30, 'F','[-F]F[F[-F-vv>F][v>F]]']],2 ))
