@@ -3,7 +3,7 @@ import pydoc
 from string_write import *
 from interpreter import *
 
-
+name = ""
 
 def createUI():
     #if cmds.window("window", exists = True):
@@ -29,7 +29,7 @@ def createUI():
     cmds.text( l="Rule 1: ", en=True )
     cmds.textField( "prodRulePred1", en=True, tx="F" )
     cmds.text( l="->", en=True )
-    cmds.textField( "prodRuleSucc1", en=True, tx="F[&+F]F[->FL][&FB]" )
+    cmds.textField( "prodRuleSucc1", en=True, tx="[-<F]F[F[->>F+^^F][v+F]]" )
     cmds.intField( "prodRuleProb1", minValue=0, maxValue=100, value=100)
     cmds.separator( st="none" )
     cmds.separator( st="none" )
@@ -57,7 +57,6 @@ def createUI():
     #cmds.rowColumnLayout( numberOfColumns=1, columnWidth=[(1, 406)],)
     #cmds.intSliderGrp( "depthIntField", l="Depth: ", v=3, cw3=[40,30,200], min=1, max=10, fmx=20, f=True)
     
-    lstring = ""
     def generateString(*args):
         ''' Queries all the fields related to the string generation and calls the procedure. '''
         axiom = cmds.textField( "axiomTextField", q=True, tx=True )
@@ -89,17 +88,33 @@ def createUI():
         # ensure sum of all probabilities is 100.
         probSum = int(prodRuleProb1) + int(prodRuleProb2) + int(prodRuleProb3)
         if probSum > 100:
-            cmds.textField( "warningsTextField", edit=True, tx="Be careful with percentages. They don't add to 100." )
-            cmds.textField( "output", edit=True, tx="ERROR. Take a look at the warning text line." )
+            print("Be careful with percentages. They don't add to 100")
         else:
+            print(rules)
             lstring = writeString( axiom, rules, depth )
             cmds.textField( "string_output", edit=True, tx=lstring )
 
     
-    #cmds.rowColumnLayout( numberOfColumns=3, columnWidth=[(1,100), (2,10), (3,230)], p=window)
+    cmds.rowColumnLayout( numberOfColumns=1, columnWidth=[(1,410)], p=window)
     cmds.button( label='Generate String', command=generateString )
     cmds.separator( h=5, st="none" )
     cmds.textField("string_output")
+
+    
+    #word, name, angle, angleChange, rad, radChange, length, lengthChange, point, leafColor, blossColor, trunkColor
+    cmds.rowColumnLayout( numberOfColumns=1, columnWidth=[(1,410)], p=window )
+    cmds.rowColumnLayout( nc=2, cw=[(1,40),(2,100)], p=window )
+    cmds.text("Name: ", en=True)
+    cmds.textField( "tree_name", en=True, tx="Tree") #must connect this to some variable
+
+    cmds.rowColumnLayout( numberOfColumns=7, columnWidth=[(1,80), (2,40), (3,60), (4,40), (5,60), (6,40), (7,60),], p=window)
+    cmds.text("Angle:", en=True )
+    cmds.text("x: ", en=True)
+    cmds.textField( "xAngle", en=True, tx="1.5708")
+    cmds.text("y: ", en=True)
+    cmds.textField( "yAngle", en=True, tx="0")
+    cmds.text("z: ", en=True)
+    cmds.textField( "zAngle", en=True, tx="1.5708")
 
     cmds.rowColumnLayout( numberOfColumns=7, columnWidth=[(1,80), (2,40), (3,30), (4,40), (5,30), (6,40), (7,30),], p=window)
     cmds.text("Starting Point:", en=True)
@@ -110,27 +125,12 @@ def createUI():
     cmds.text("z: ", en=True)
     cmds.textField( "zPoint", en=True, tx="0")
     
-    #word, name, angle, angleChange, rad, radChange, length, lengthChange, point, leafColor, blossColor, trunkColor
-    cmds.rowColumnLayout( nc=2, cw=[(1,40),(2,30)], p=window )
-    cmds.text("Name: ", en=True)
-    cmds.textField( "tree_name", en=True, tx="Tree") #must connect this to some variable
-    tree_name = "Tree"
-
-    cmds.rowColumnLayout( numberOfColumns=7, columnWidth=[(1,80), (2,40), (3,30), (4,40), (5,30), (6,40), (7,30),], p=window)
-    cmds.text("Angle:", en=True )
-    cmds.text("x: ", en=True)
-    cmds.textField( "xAngle", en=True, tx="1.5708" )
-    cmds.text("y: ", en=True)
-    cmds.textField( "yAngle", en=True, tx="0")
-    cmds.text("z: ", en=True)
-    cmds.textField( "zAngle", en=True, tx="1.5708")
-    
     cmds.rowColumnLayout( numberOfColumns=1, columnWidth=[(1,410)], p=window )
-    cmds.intSliderGrp( "angle_atenuation", l="Angle Atenuation: ", v=95, cw3=[92,40,788], min=0, max=100, fmx=100, f=True )
-    cmds.floatSliderGrp( "radius", l="Segment Radius: ", pre=2, v=0.20, cw3=[92,40,788], min=0, max=0.5, fmx=2, f=True )
-    cmds.intSliderGrp( "radius_atenuation", l="Rad. Atenuation: ", v=85, cw3=[92,40,788], min=0, max=100, fmx=100, f=True )
-    cmds.floatSliderGrp( "length", l="Segment Length: ", pre=2, v=1.20, cw3=[92,40,788], min=0, max=10, fmx=100, f=True )
-    cmds.intSliderGrp( "length_atenuation", l="Len. Atenuation: ", v=95, cw3=[92,40,788], min=0, max=100, fmx=100, f=True )
+    cmds.intSliderGrp( "angle_atenuation", l="Angle Atenuation: ", v=30, cw3=[92,40,788], min=.1, max=100, fmx=100, f=True )
+    cmds.floatSliderGrp( "radius", l="Segment Radius: ", pre=2, v=1, cw3=[92,40,788], min=.1, max=2, fmx=2, f=True )
+    cmds.intSliderGrp( "radius_atenuation", l="Rad. Atenuation: ", v=85, cw3=[92,40,788], min=.1, max=100, fmx=100, f=True )
+    cmds.floatSliderGrp( "length", l="Segment Length: ", pre=2, v=10, cw3=[92,40,788], min=.1, max=10, fmx=100, f=True )
+    cmds.intSliderGrp( "length_atenuation", l="Len. Atenuation: ", v=95, cw3=[92,40,788], min=.1, max=100, fmx=100, f=True )
     cmds.colorSliderGrp( "rgb_branchField", l="Branches: ", rgb=(0.430,0.230,0.11), cw3=[52,30,328], ann="Branch colour." )
     cmds.separator( h=6, st="none" )
     cmds.colorSliderGrp( "rgb_leafField", l="Leaves: ", rgb=(0,0.624,0), cw3=[52,30,328], ann="Leaf colour." )
@@ -138,39 +138,58 @@ def createUI():
     cmds.colorSliderGrp('rgb_blossomField', l="Blossoms: ", rgb=(0.624,0,0), cw3=[52,30,328], ann="Blossoms colour." )
     cmds.separator( h=2, st="none" )
     
-
-
     #Generate Mesh
     def generateMesh(*args):
         #lstring
         #word, name, angle, angleChange, rad, radChange, length, lengthChange, point, leafColor, blossColor, trunkColor
-        name = cmds.textField( "tree_name", q=True, tx=True )
-        
-        xAngle = cmds.text("xAngle: ", q=True, tx=True )
-        yAngle = cmds.text("yAngle: ", q=True, tx=True )
-        zAngle = cmds.text("zAngle: ", q=True, tx=True )
-        
-        angleChange = cmds.intSliderGrp( "angle_atenuation", q=True, tx=True )
-        rad = cmds.floatSliderGrp( "radius", q=True, tx=True )
-        radChange = cmds.intSliderGrp( "radius_atenuation", q=True, tx=True )
-        length = cmds.floatSliderGrp( "length", q=True, tx=True )
-        lengthChange = cmds.intSliderGrp( "length_atenuation", q=True, tx=True )
-        
-        xPoint = cmds.text("xPoint: ", q=True, tx=True )
-        yPoint = cmds.text("yPoint: ", q=True, tx=True )
-        zPoint = cmds.text("zPoint: ", q=True, tx=True )
+        global name
+        name = str(cmds.textField( "tree_name", q=True, tx=True ))
+        print(name)
 
-        leafColor = cmds.colorSliderGrp( "rgb_branchField", q=True, tx=True )
-        blossColor = cmds.colorSliderGrp('rgb_blossomField', q=True, tx=True )
-        trunkColor = cmds.colorSliderGrp( "rgb_leafField", q=True, tx=True )
+        lstring = str(cmds.textField("string_output", q=True, tx=True))
         
-        Make( lstring, name, [xAngle,yAngle,zAngle], angleChange, rad, radChange, length, lengthChange, (xPoint,yPoint,zPoint), leafColor, blossColor, trunkColor )
+        xAngle = float(cmds.textField("xAngle", q=True, tx=True))
+        yAngle = float(cmds.textField("yAngle", q=True, tx=True))
+        zAngle = float(cmds.textField("zAngle", q=True, tx=True))
+        
+        angleChange = cmds.intSliderGrp( "angle_atenuation", q=True, v=True)/100.0
+        rad = cmds.floatSliderGrp( "radius", q=True, v=True)
+        radChange = cmds.intSliderGrp( "radius_atenuation", q=True, v=True)/100.0
+        length = cmds.floatSliderGrp( "length", q=True, v=True)
+        lengthChange = cmds.intSliderGrp( "length_atenuation", q=True, v=True)/100.0
+        
+        xPoint = float(cmds.textField("xPoint", q=True, tx=True))
+        yPoint = float(cmds.textField("yPoint", q=True, tx=True))
+        zPoint = float(cmds.textField("zPoint", q=True, tx=True))
+
+        trunkColor = cmds.colorSliderGrp( "rgb_branchField", q=True, rgb=True)
+        blossColor = cmds.colorSliderGrp('rgb_blossomField', q=True, rgb=True)
+        leafColor = cmds.colorSliderGrp( "rgb_leafField", q=True, rgb=True)
+        
+        print(rad)
+        print(lstring)
+        if rad == 0 or lstring == '': #EXPAND
+            #cmds.textField('warningsTextField', edit=True, tx='Please, revise all the fields again')  
+            print("REVISE")
+        else:
+            Make( lstring, name, [xAngle,yAngle,zAngle], angleChange, rad, radChange, length, lengthChange, (xPoint,yPoint,zPoint), leafColor, blossColor, trunkColor )
     
     
     
-    cmds.rowColumnLayout( numberOfColumns=1, p=window )
+    cmds.rowColumnLayout( numberOfColumns=1, columnWidth=[(1,410)], p=window )
+    global name 
     cmds.button( label='Generate Mesh', command=generateMesh )
 
+    def deleteTree(*args):
+        global name
+        if len(name) > 0:
+            cmds.select( name )
+            cmds.delete()
+            name = ""
+
+    
+    cmds.rowColumnLayout( numberOfColumns=1, columnWidth=[(1,410)], p=window )
+    cmds.button( label='Delete Last Tree', command=deleteTree )
 
     #close UI
     def closeUI(*args):

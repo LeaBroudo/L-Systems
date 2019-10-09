@@ -22,6 +22,8 @@ def writeString( word, rules, depth ):
             # finds which rules must be applied 
             for i in range( len(rules) ):
             
+                rules[i][0] = float(rules[i][0])  #makes sure number not string 
+
                 if item == rules[i][1]:
                     rulesToApply.append( rules[i] )
             
@@ -52,8 +54,9 @@ def writeString( word, rules, depth ):
                 cuttoff = 0
 
                 for i in range( len(rulesToApply) ):
-                    
+
                     cuttoff += rulesToApply[i][0]
+                    
                     if selector <= cuttoff:
                         break
 

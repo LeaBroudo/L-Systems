@@ -4,20 +4,6 @@ import copy
 
 class Make:
 
-    #firstBranch = True
-    currLevel = 0
-    val = 0
-    blossVal = 0
-    leafVal = 0
-    
-    branchStack = []  #filled with branches
-    allBranchCurves = [] #all completed branch dicts names to add polygons to
-    allTrunks = []
-    #prevPoints = [] #used for error checking if a curve has already been placed in the position
-    allBlossCurves = []
-
-    parent = ""
-
     '''
     word: (string) the grammar to be used to create the l-systems
     name: (string) root name of the tree to be created
@@ -46,7 +32,19 @@ class Make:
         self.blossColor = blossColor
         self.trunkColor = trunkColor
 
-        #taper?
+        self.currLevel = 0
+        self.val = 0
+        self.blossVal = 0
+        self.leafVal = 0
+        
+        self.branchStack = []  #filled with branches
+        self.allBranchCurves = [] #all completed branch dicts names to add polygons to
+        self.allTrunks = []
+        #prevPoints = [] #used for error checking if a curve has already been placed in the position
+        self.allBlossCurves = []
+
+        self.parent = ""
+
 
         #runs the commands in the grammar to create curve skeleton of tree
         for let in self.word:
@@ -60,13 +58,13 @@ class Make:
         #group curves
         curveGroup = 'All_Curves'
         cmds.group( em=True, name=curveGroup )
-        for curve in Make.allBranchCurves:
+        for curve in self.allBranchCurves:
             cmds.parent(curve["name"], curveGroup)
 
         #group trunks
         trunkGroup = 'All_Trunks'
         cmds.group( em=True, name=trunkGroup )
-        for trunk in Make.allTrunks:
+        for trunk in self.allTrunks:
             cmds.parent(trunk, trunkGroup)
 
         #Group everything under name
@@ -75,7 +73,7 @@ class Make:
         cmds.parent(curveGroup, self.name)
 
         #add shaders
-        for trunk in Make.allTrunks:
+        for trunk in self.allTrunks:
             self.shadeTrunk(trunk)
 
         
@@ -150,8 +148,8 @@ class Make:
         #Names Curve
         #gets parent curve number to append to curve name MAKE INTO SPLIT
         parentNum = ""
-        if Make.parent != "":
-            parentNum = Make.parent.split("_")[2]
+        if self.parent != "":
+            parentNum = self.parent.split("_")[2]
         
         curveName = self.name+"_curve_"+str(self.val)+"_p_"+parentNum
         cmds.curve( name=curveName, p=points, d=3 ) 
@@ -162,17 +160,17 @@ class Make:
             "point" : copy.deepcopy(self.point),
             "angle" : copy.deepcopy(self.angle),
             "length" : copy.deepcopy(self.length),
-            "parent" : copy.deepcopy(Make.parent),
+            "parent" : copy.deepcopy(self.parent),
             "baseRad" : copy.deepcopy(self.rad),
             "tipRad" : copy.deepcopy(self.rad) * self.radChange
         }
-        Make.allBranchCurves.append(newBranch)
+        self.allBranchCurves.append(newBranch)
         
         #Updates settings
-        Make.val += 1
-        Make.currLevel += 1
+        self.val += 1
+        self.currLevel += 1
         self.point = endPoint
-        Make.parent = curveName
+        self.parent = curveName
         self.rad *= self.radChange
 
 
@@ -183,7 +181,7 @@ class Make:
 
     def createBlossom( self ):
         
-        blossName = "blossom_curve_" + str(Make.blossVal) 
+        blossName = "blossom_curve_" + str(self.blossVal) 
         blossLen = self.length * 0.3 #might want to change ratio
 
         #endpoint
@@ -202,7 +200,7 @@ class Make:
 
         #Makes Curve, adds to array
         cmds.curve( name=blossName, p=points, d=3 ) 
-        Make.allBlossCurves.append(blossName)
+        self.allBlossCurves.append(blossName)
         
 
         
@@ -220,7 +218,7 @@ class Make:
             "point" : copy.deepcopy(self.point),
             "angle" : copy.deepcopy(self.angle),
             "length" : copy.deepcopy(self.length),
-            "parent" : copy.deepcopy(Make.parent),
+            "parent" : copy.deepcopy(self.parent),
             "radius" : copy.deepcopy(self.rad)
         }
 
@@ -237,12 +235,12 @@ class Make:
         self.point = pastBranch["point"]
         self.angle = pastBranch["angle"]
         self.length = pastBranch["length"]
-        Make.parent = pastBranch["parent"]
+        self.parent = pastBranch["parent"]
         self.rad = pastBranch["radius"]
         
     def addTrunkMesh( self ):
         
-        for curve in Make.allBranchCurves:
+        for curve in self.allBranchCurves:
             
             #Names trunk 
             startIdx = len(self.name) + len("_curve_")
@@ -250,7 +248,7 @@ class Make:
             
             #Creates cylinder and moves it to the origin pt 
             cmds.polyCylinder(name=trunkName, subdivisionsX=20, subdivisionsY=1, r=curve["baseRad"])
-            #cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
+            cmds.move( -1, trunkName+".scalePivot", trunkName+".rotatePivot", moveY=True, relative=True)
             
             #move polygon to start and align with normal
             cmds.select(clear=True)
@@ -268,11 +266,11 @@ class Make:
             #extrudes along curve
             cmds.polyExtrudeFacet( inputCurve=curve["name"], d=1, localScale=scale )
 
-            Make.allTrunks.append(trunkName)
+            self.allTrunks.append(trunkName)
 
     def addBlossMesh( self ):
 
-        for blossCurve in Make.allBlossCurves:
+        for blossCurve in self.allBlossCurves:
 
             #Names trunk 
             startIdx = len("Blossom_curve_")
@@ -310,7 +308,7 @@ class Make:
         #union all together, and smooth!!
         
         #works range 0-6
-        for sectNum in range(0, Make.val-1): 
+        for sectNum in range(0, self.val-1): 
         #for sectNum in range(0, 2): 
 
             #Unions pairs of two branches into "sections"
@@ -356,7 +354,7 @@ class Make:
 #grammar = "F[-<[-<F]F[F[->>F+^^F][v+F]]][-<F]F[F[->>F+^^F][v+F]][[-<F]F[F[->>F+^^F][v+F]][->>[-<F]F[F[->>F+^^F][v+F]]+^^[-<F]F[F[->>F+^^F][v+F]]][v+[-<F]F[F[->>F+^^F][v+F]]]]"
 #grammar = "F[vv>>F][^^<<F][vv>>F[vv>>F][^^<<F]][^^<<F[vv>>F][^^<<F]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][vv>>F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][vv>>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]]]][^^<<F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][--<F[vv>>F][^^<<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][^^<<F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]]][^^<<F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]]]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][vv>>F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]][++>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]]]][vv>>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][vv>>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[vv>>F][^^<<F]]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][++>F[vv>>F][^^<<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]]]][^^<<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][++>F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]][--<F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]]][++>F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]][++>F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][--<F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[vv>>F][^^<<F]]][++>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[vv>>F][^^<<F]]]][--<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][^^<<F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]]][--<F[vv>>F][^^<<F][vv>>F[++>F][--<F]][^^<<F[++>F][--<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][++>F[++>F][--<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]][vv>>F[++>F][--<F][vv>>F[vv>>F][^^<<F]][^^<<F[++>F][--<F]]][^^<<F[vv>>F][^^<<F][++>F[vv>>F][^^<<F]][--<F[++>F][--<F]]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[++>F][--<F]][++>F[vv>>F][^^<<F][++>F[++>F][--<F]][--<F[++>F][--<F]]][--<F[++>F][--<F][++>F[++>F][--<F]][--<F[vv>>F][^^<<F]]]]]]"
 #grammar = "[-[-F]F[F[-F-vv>F][v>F]]]F[+F][-F][vF][^F]F[F[+F][-F][vF][^F]F[-[-F]F[F[-F-vv>F][v>F]]-vv>F[+F][-F][vF][^F]F][v>[-F]F[F[-F-vv>F][v>F]]]]"
-grammar = "F[-F[^^FB]]"
+#grammar = "F[-F[^^FB]]"
 #grammar = "F"
 #( self, word, name, angle, angleChange, rad, radChange, length, lengthChange, point )
-interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, .8, 10, .95, (0,0,0), (0,0,0), (0,0,0), (0.4,0.15,0.12) )
+#interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, .8, 10, .95, (0,0,0), (0,0,0), (0,0,0), (0.4,0.15,0.12) )
