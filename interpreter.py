@@ -40,12 +40,38 @@ class Make:
         self.branchStack = []  #filled with branches
         self.allBranchCurves = [] #all completed branch dicts names to add polygons to
         self.allTrunks = []
+        self.allBlossoms = []
         #prevPoints = [] #used for error checking if a curve has already been placed in the position
         self.allBlossCurves = []
 
         self.parent = ""
 
 
+        
+        #Correctly group parts
+        #group curves
+        self.curveGroup = 'All_Curves'
+        cmds.group( em=True, name=self.curveGroup )
+
+        #group trunks
+        self.trunkGroup = 'All_Trunks'
+        cmds.group( em=True, name=self.trunkGroup )
+
+        #group blossoms
+        self.blossGroup = 'All_Blossoms'
+        cmds.group( em=True, name=self.blossGroup )
+
+        #group leaves
+        self.leafGroup = 'All_Leaves'
+        cmds.group( em=True, name=self.leafGroup )
+
+        #Group everything under name
+        cmds.group( em=True, name=self.name )
+        cmds.parent(self.trunkGroup, self.name)
+        cmds.parent(self.curveGroup, self.name)
+        cmds.parent(self.blossGroup, self.name)
+        cmds.parent(self.leafGroup, self.name)
+        
         #runs the commands in the grammar to create curve skeleton of tree
         for let in self.word:
             self.runCommand(let)
@@ -54,28 +80,13 @@ class Make:
         self.addTrunkMesh()
         self.addBlossMesh()
 
-        #Correctly group parts
-        #group curves
-        curveGroup = 'All_Curves'
-        cmds.group( em=True, name=curveGroup )
-        for curve in self.allBranchCurves:
-            cmds.parent(curve["name"], curveGroup)
-
-        #group trunks
-        trunkGroup = 'All_Trunks'
-        cmds.group( em=True, name=trunkGroup )
-        for trunk in self.allTrunks:
-            cmds.parent(trunk, trunkGroup)
-
-        #Group everything under name
-        cmds.group( em=True, name=self.name )
-        cmds.parent(trunkGroup, self.name)
-        cmds.parent(curveGroup, self.name)
 
         #add shaders
         for trunk in self.allTrunks:
             self.shadeTrunk(trunk)
 
+        for bloss in self.allBlossoms:
+            self.shadeBlossom(bloss)
         
 
     def runCommand( self, char ):
@@ -99,6 +110,7 @@ class Make:
             self.createLeaf()   
         if char == 'b' or char == 'B':
             self.createBlossom()     
+            #self.addBlossMesh()
         if char == '+': 
             self.rotate(self.angleChange*2, 0)  
         if char == '-': 
@@ -164,6 +176,8 @@ class Make:
             "baseRad" : copy.deepcopy(self.rad),
             "tipRad" : copy.deepcopy(self.rad) * self.radChange
         }
+
+        cmds.parent(curveName, self.curveGroup)
         self.allBranchCurves.append(newBranch)
         
         #Updates settings
@@ -200,7 +214,11 @@ class Make:
 
         #Makes Curve, adds to array
         cmds.curve( name=blossName, p=points, d=3 ) 
+        print(blossName)
         self.allBlossCurves.append(blossName)
+
+        self.blossVal += 1
+        cmds.parent(blossName, self.curveGroup)
         
 
         
@@ -266,6 +284,7 @@ class Make:
             #extrudes along curve
             cmds.polyExtrudeFacet( inputCurve=curve["name"], d=1, localScale=scale )
 
+            cmds.parent(trunkName, self.trunkGroup)
             self.allTrunks.append(trunkName)
 
     def addBlossMesh( self ):
@@ -273,28 +292,45 @@ class Make:
         for blossCurve in self.allBlossCurves:
 
             #Names trunk 
-            startIdx = len("Blossom_curve_")
-            blossMesh = "Blossom_" + blossCurve[startIdx:]
+            startIdx = len("blossom_curve_")
+            blossMesh = "blossom_" + blossCurve[startIdx:]+"_"+str(self.blossVal)
             
             #Adds blossom mesh
-            cmds.polyCylinder(name=blossMesh, subdivisionsX=20, subdivisionsY=1 ) #CHANGE LATER
+            #cmds.polyCylinder(name=blossMesh, subdivisionsX=20, subdivisionsY=1 ) #CHANGE LATER
+
+            import os
+            pathVar = os.path.dirname(__file__) # This stores the current working directory
+
+            cmds.file( pathVar+"/blossom_geo.mb", i=True )
+            #bloss_file = cmds.file( pathVar+"/lotus_OBJ_low.obj", i=True )
+            cmds.rename( "polySurface1", blossMesh )
+            # Places the blossom to the right position and rotates it according to the last branch orientation
+            cmds.select( blossMesh )
             
-            #Scale blossum to curve length
-            curveLen = cmds.arclen(blossCurve)
             yMax = cmds.xform(boundingBox=True, q=True)[4] #values returned as: xmin ymin zmin xmax ymax zmax
-            scale = [curveLen/yMax for i in range(3)]  
+            scale = [self.length/yMax for i in range(3)]  
             cmds.select(clear=True)
             cmds.select(blossMesh)
-            cmds.scale(scale[0], scale[1], scale[2])
+            cmds.scale(0.5*scale[0], 0.5*scale[1], 0.5*scale[2])
             
             #move polygon to branch end and align with normal
+            cmds.select(clear=True)
+            cmds.select(blossMesh, tgl=True)
+
+            points = cmds.getAttr( blossCurve+'.cv[0:2]' )
+            start = points[0]
+            cmds.move( start[0], start[1], start[2])
+            print(blossCurve)
+            print(start)
+
             cmds.select(clear=True)
             cmds.select(blossMesh, tgl=True)
             cmds.select(blossCurve, add=True)
             cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) 
 
+            self.allBlossoms.append(blossMesh)
+            cmds.parent(blossMesh, self.blossGroup)
             
-        
 
 
     def cleanUp( self ):
@@ -327,18 +363,22 @@ class Make:
     
     def shadeTrunk( self, trunk):
 
-        trunkMat = cmds.shadingNode( 'lambert', asShader=True, name="trunkShader") #finish line!!!
+        trunkMat = cmds.shadingNode( 'lambert', asShader=True, name="trunkShader") 
         cmds.setAttr( trunkMat+'.color', self.trunkColor[0], self.trunkColor[1], self.trunkColor[2])
         trunkSG = cmds.sets(empty=True, renderable=True, noSurfaceShader=True, name=trunkMat+"SG")
-        cmds.connectAttr( trunkMat + '.outColor', trunkSG + '.surfaceShader', force=True ) #what does force do?
+        cmds.connectAttr( trunkMat + '.outColor', trunkSG + '.surfaceShader', force=True ) 
         cmds.sets(trunk, e=True, forceElement=trunkSG)
 
 
     def shadeBlossom( self, bloss):
         #same as shaderBranch, just multiple times w/ diff parts of flower
-        """
-        TODO
-        """
+        
+        blossMat = cmds.shadingNode( 'lambert', asShader=True, name="blossShader") 
+        cmds.setAttr( blossMat+'.color', self.blossColor[0], self.blossColor[1], self.blossColor[2])
+        blossSG = cmds.sets(empty=True, renderable=True, noSurfaceShader=True, name=blossMat+"SG")
+        cmds.connectAttr( blossMat + '.outColor', blossSG + '.surfaceShader', force=True ) 
+        cmds.sets(bloss, e=True, forceElement=blossSG)
+
 
     def shadeLeaf( self, leaf):
         """
