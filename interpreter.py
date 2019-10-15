@@ -41,8 +41,10 @@ class Make:
         self.allBranchCurves = [] #all completed branch dicts names to add polygons to
         self.allTrunks = []
         self.allBlossoms = []
+        self.allLeaves = []
         #prevPoints = [] #used for error checking if a curve has already been placed in the position
         self.allBlossCurves = []
+        self.allLeafCurves = []
 
         self.parent = ""
 
@@ -79,7 +81,7 @@ class Make:
         #Adds polygon mesh to skeleton
         self.addTrunkMesh()
         self.addBlossMesh()
-
+        self.addLeafMesh()
 
         #add shaders
         for trunk in self.allTrunks:
@@ -87,6 +89,9 @@ class Make:
 
         for bloss in self.allBlossoms:
             self.shadeBlossom(bloss)
+
+        for leaf in self.allLeaves:
+            self.shadeLeaf(leaf)
         
 
     def runCommand( self, char ):
@@ -110,7 +115,6 @@ class Make:
             self.createLeaf()   
         if char == 'b' or char == 'B':
             self.createBlossom()     
-            #self.addBlossMesh()
         if char == '+': 
             self.rotate(self.angleChange*2, 0)  
         if char == '-': 
@@ -189,9 +193,29 @@ class Make:
 
 
     def createLeaf( self ):
-        """
-        TODO
-        """
+        leafName = "leaf_curve_" + str(self.leafVal) 
+        leafLen = self.length * 0.3 #might want to change ratio
+
+        #endpoint
+        x = self.point[0] + ( leafLen * math.cos(self.angle[0]) )  
+        y = self.point[1] + ( leafLen * math.cos(self.angle[1]) )  
+        z = self.point[2] + ( leafLen * math.cos(self.angle[2]) )  
+        endPoint = ( x, y, z )
+        diff = ( x-self.point[0], y-self.point[1], z-self.point[2] )
+
+        #creates two points to go along curve
+        midpoint_1 = ( self.point[0] + .3*diff[0], self.point[1] + .3*diff[1], self.point[2] + .3*diff[2] )
+        midpoint_2 = ( self.point[0] + .6*diff[0], self.point[1] + .6*diff[1], self.point[2] + .6*diff[2] )
+        
+        #creates array of curve points
+        points = [self.point, midpoint_1, midpoint_2, endPoint]
+
+        #Makes Curve, adds to array
+        cmds.curve( name=leafName, p=points, d=3 ) 
+        self.allLeafCurves.append(leafName)
+
+        self.leafVal += 1
+        cmds.parent(leafName, self.curveGroup)
 
     def createBlossom( self ):
         
@@ -296,17 +320,14 @@ class Make:
             blossMesh = "blossom_" + blossCurve[startIdx:]+"_"+str(self.blossVal)
             
             #Adds blossom mesh
-            #cmds.polyCylinder(name=blossMesh, subdivisionsX=20, subdivisionsY=1 ) #CHANGE LATER
-
             import os
             pathVar = os.path.dirname(__file__) # This stores the current working directory
-
             cmds.file( pathVar+"/blossom_geo.mb", i=True )
             #bloss_file = cmds.file( pathVar+"/lotus_OBJ_low.obj", i=True )
             cmds.rename( "polySurface1", blossMesh )
+            
             # Places the blossom to the right position and rotates it according to the last branch orientation
             cmds.select( blossMesh )
-            
             yMax = cmds.xform(boundingBox=True, q=True)[4] #values returned as: xmin ymin zmin xmax ymax zmax
             scale = [self.length/yMax for i in range(3)]  
             cmds.select(clear=True)
@@ -316,12 +337,9 @@ class Make:
             #move polygon to branch end and align with normal
             cmds.select(clear=True)
             cmds.select(blossMesh, tgl=True)
-
             points = cmds.getAttr( blossCurve+'.cv[0:2]' )
             start = points[0]
             cmds.move( start[0], start[1], start[2])
-            print(blossCurve)
-            print(start)
 
             cmds.select(clear=True)
             cmds.select(blossMesh, tgl=True)
@@ -331,7 +349,42 @@ class Make:
             self.allBlossoms.append(blossMesh)
             cmds.parent(blossMesh, self.blossGroup)
             
+    def addLeafMesh( self ):
 
+        for leafCurve in self.allLeafCurves:
+
+            #Names trunk 
+            startIdx = len("leaf_curve_")
+            leafMesh = "leaf_" + leafCurve[startIdx:]+"_"+str(self.leafVal)
+            
+            #Adds blossom mesh
+            import os
+            pathVar = os.path.dirname(__file__) # This stores the current working directory
+            cmds.file( pathVar+"/leaf_geo.mb", i=True )
+            cmds.rename( "pPlane1", leafMesh )
+            
+            # Places the blossom to the right position and rotates it according to the last branch orientation
+            cmds.select( leafMesh )
+            yMax = cmds.xform(boundingBox=True, q=True)[4] #values returned as: xmin ymin zmin xmax ymax zmax
+            scale = [self.length/yMax for i in range(3)]  
+            cmds.select(clear=True)
+            cmds.select(leafMesh)
+            cmds.scale(3/scale[0], 3/scale[1], 3/scale[2])
+            
+            #move polygon to branch end and align with normal
+            cmds.select(clear=True)
+            cmds.select(leafMesh, tgl=True)
+            points = cmds.getAttr( leafCurve+'.cv[0:2]' )
+            start = points[0]
+            cmds.move( start[0], start[1], start[2])
+
+            cmds.select(clear=True)
+            cmds.select(leafMesh, tgl=True)
+            cmds.select(leafCurve, add=True)
+            cmds.pathAnimation( follow=True, followAxis='y', upAxis='z', startTimeU=True) 
+
+            self.allLeaves.append(leafMesh)
+            cmds.parent(leafMesh, self.leafGroup)
 
     def cleanUp( self ):
         
@@ -371,7 +424,7 @@ class Make:
 
 
     def shadeBlossom( self, bloss):
-        #same as shaderBranch, just multiple times w/ diff parts of flower
+        #same as shadeTrunk, just multiple times w/ diff parts of flower
         
         blossMat = cmds.shadingNode( 'lambert', asShader=True, name="blossShader") 
         cmds.setAttr( blossMat+'.color', self.blossColor[0], self.blossColor[1], self.blossColor[2])
@@ -381,9 +434,12 @@ class Make:
 
 
     def shadeLeaf( self, leaf):
-        """
-        TODO
-        """
+        
+        leafMat = cmds.shadingNode( 'lambert', asShader=True, name="leafShader") 
+        cmds.setAttr( leafMat+'.color', self.leafColor[0], self.leafColor[1], self.leafColor[2])
+        leafSG = cmds.sets(empty=True, renderable=True, noSurfaceShader=True, name=leafMat+"SG")
+        cmds.connectAttr( leafMat + '.outColor', leafSG + '.surfaceShader', force=True ) 
+        cmds.sets(leaf, e=True, forceElement=leafSG)
 
     
 
