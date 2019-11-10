@@ -1,6 +1,7 @@
 import maya.cmds as cmds
 import math
 import copy
+import os
 
 class Make:
 
@@ -80,8 +81,34 @@ class Make:
         
         #Adds polygon mesh to skeleton
         self.addTrunkMesh()
-        self.addBlossMesh()
-        self.addLeafMesh()
+
+        if len(self.allBlossCurves) > 0:
+            
+            self.blossMesh = "Bloss_root"
+            pathVar = os.path.dirname(__file__) # This stores the current working directory
+            cmds.file( pathVar+"/blossom_geo.mb", i=True )
+            #bloss_file = cmds.file( pathVar+"/lotus_OBJ_low.obj", i=True )
+            cmds.rename( "polySurface1", self.blossMesh )
+
+            #Remove stem and change pivot
+            cmds.delete(self.blossMesh + ".f[0:20]", self.blossMesh + ".f[30:50]")
+            cmds.move(0, 1, 0, self.blossMesh+".scalePivot", self.blossMesh+".rotatePivot", absolute=True)
+
+    
+            self.addBlossMesh()
+
+            cmds.delete(self.blossMesh)
+        
+        if len(self.allLeafCurves) > 0:
+            self.leafMesh = "Leaf_root"
+            pathVar = os.path.dirname(__file__) # This stores the current working directory
+            cmds.file( pathVar+"/leaf_geo.mb", i=True )
+            cmds.rename( "pPlane1", self.leafMesh )
+            
+            self.addLeafMesh()
+
+            cmds.delete(self.leafMesh)
+
 
         #add shaders
         for trunk in self.allTrunks:
@@ -320,12 +347,14 @@ class Make:
             blossMesh = "blossom_" + blossCurve[startIdx:]+"_"+str(self.blossVal)
             
             #Adds blossom mesh
-            import os
-            pathVar = os.path.dirname(__file__) # This stores the current working directory
-            cmds.file( pathVar+"/blossom_geo.mb", i=True )
+            #import os
+            #pathVar = os.path.dirname(__file__) # This stores the current working directory
+            #cmds.file( pathVar+"/blossom_geo.mb", i=True )
             #bloss_file = cmds.file( pathVar+"/lotus_OBJ_low.obj", i=True )
-            cmds.rename( "polySurface1", blossMesh )
-            
+            #cmds.rename( "polySurface1", blossMesh )
+            cmds.duplicate(self.blossMesh, name=blossMesh)
+
+
             # Places the blossom to the right position and rotates it according to the last branch orientation
             cmds.select( blossMesh )
             yMax = cmds.xform(boundingBox=True, q=True)[4] #values returned as: xmin ymin zmin xmax ymax zmax
@@ -358,10 +387,11 @@ class Make:
             leafMesh = "leaf_" + leafCurve[startIdx:]+"_"+str(self.leafVal)
             
             #Adds blossom mesh
-            import os
-            pathVar = os.path.dirname(__file__) # This stores the current working directory
-            cmds.file( pathVar+"/leaf_geo.mb", i=True )
-            cmds.rename( "pPlane1", leafMesh )
+            #import os
+            #pathVar = os.path.dirname(__file__) # This stores the current working directory
+            #cmds.file( pathVar+"/leaf_geo.mb", i=True )
+            #cmds.rename( "pPlane1", leafMesh )
+            cmds.duplicate(self.leafMesh, name=leafMesh)
             
             # Places the blossom to the right position and rotates it according to the last branch orientation
             cmds.select( leafMesh )
@@ -453,4 +483,8 @@ class Make:
 #grammar = "F[-F[^^FB]]"
 #grammar = "F"
 #( self, word, name, angle, angleChange, rad, radChange, length, lengthChange, point )
-#interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, .8, 10, .95, (0,0,0), (0,0,0), (0,0,0), (0.4,0.15,0.12) )
+#interpreter = Make( grammar, "Tree", [1.5708,0,1.5708], .3, 1, .8, 10, .95, (0,0,0), (0,0,0), (0,0,0), (0.4,0.15,0.12) )\\\\
+
+
+
+
